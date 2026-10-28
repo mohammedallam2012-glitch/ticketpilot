@@ -1,0 +1,2153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TicketPilot — Independent Ticket Reseller Inventory, Listing Tracker & Duplicate-Sale Safety SaaS</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #F8FAFC;
+      color: #0F172A;
+    }
+    .sidebar-navy {
+      background-color: #0F172A;
+    }
+    .badge-stubhub { background-color: #EDE9FE; color: #5B21B6; border: 1px solid #C4B5FD; }
+    .badge-viagogo { background-color: #CCFBF1; color: #115E59; border: 1px solid #99F6E4; }
+    .badge-ticketmaster { background-color: #DBEAFE; color: #1E40AF; border: 1px solid #93C5FD; }
+    .badge-seatgeek { background-color: #FFEDD5; color: #9A3412; border: 1px solid #FDBA74; }
+    .badge-vividseats { background-color: #FCE7F3; color: #9D174D; border: 1px solid #F9A8D4; }
+    .badge-tickpick { background-color: #DCFCE7; color: #166534; border: 1px solid #86EFAC; }
+    .badge-other { background-color: #F1F5F9; color: #334155; border: 1px solid #CBD5E1; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Honest Product Boundary & Sandbox Mode Disclosure Banner -->
+  <div class="bg-blue-950 text-blue-100 px-4 py-2 text-xs border-b border-blue-800 flex flex-wrap items-center justify-between gap-2">
+    <div class="flex items-center gap-2">
+      <span class="px-2 py-0.5 rounded bg-blue-600 text-white font-bold uppercase tracking-wider text-[10px]">TicketPilot v1.0 ($0 Launch Edition)</span>
+      <span>Inventory & External Listing Tracker — <strong>Not a marketplace or auto-canceller.</strong> Users must manually deactivate external listings when a ticket sells.</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="activeTenantIndicator" class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold"></span>
+      <button id="switchUserTriggerBtn" type="button" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white font-semibold border border-slate-600 transition">
+        Switch / Test Auth & Isolation
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toastNotification" class="fixed top-14 right-5 z-50 hidden">
+    <div id="toastInner" class="px-4 py-3 rounded-xl shadow-lg border text-xs font-bold flex items-center gap-2 bg-slate-900 text-white border-slate-700">
+      <span id="toastMessage">Action completed</span>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- AUTHENTICATION & EMAIL VERIFICATION GATE MODAL / SCREEN                 -->
+  <!-- ======================================================================= -->
+  <div id="authGateModal" class="fixed inset-0 z-40 bg-slate-900/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div>
+          <h2 class="text-lg font-extrabold text-slate-900">TicketPilot Authentication & RLS Tester</h2>
+          <p class="text-xs text-slate-500">Test multi-user isolation, registration, and email verification gating</p>
+        </div>
+        <button id="closeAuthModalBtn" type="button" class="text-slate-400 hover:text-slate-700 text-sm font-bold px-2 py-1">✕</button>
+      </div>
+
+      <!-- Quick Tenant Switcher for Testing User A vs User B Isolation -->
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
+        <p class="text-xs font-bold text-slate-700">Instant Multi-User Session Switcher (RLS Verification):</p>
+        <div class="grid grid-cols-1 gap-2" id="demoUsersList"></div>
+      </div>
+
+      <!-- Register New Account Form -->
+      <form id="registerForm" class="space-y-3 pt-2 border-t border-slate-200">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-blue-700">Register New Account ($0 Free Launch — No Card Required)</h3>
+        <div>
+          <label for="regNameInput" class="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
+          <input id="regNameInput" type="text" required placeholder="e.g., Jordan Vance" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-600" />
+        </div>
+        <div>
+          <label for="regEmailInput" class="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+          <input id="regEmailInput" type="email" required placeholder="jordan@example.com" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-600" />
+        </div>
+        <div>
+          <label for="regPassInput" class="block text-xs font-semibold text-slate-700 mb-1">Password (min 8 chars, upper, lower, number)</label>
+          <input id="regPassInput" type="password" required placeholder="StrongPass123" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-600" />
+        </div>
+        <label class="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+          <input id="regTermsCheck" type="checkbox" required class="mt-0.5 rounded border-slate-300 text-blue-600" />
+          <span>I accept the TicketPilot Terms of Service and Privacy Notice (inventory & tracking boundary; no marketplace credentials stored).</span>
+        </label>
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-lg transition">
+          Create Account & Send Verification Email
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- EMAIL VERIFICATION PENDING GATE SCREEN                                  -->
+  <!-- ======================================================================= -->
+  <div id="verificationPendingBanner" class="hidden bg-amber-50 border-b border-amber-300 px-6 py-8">
+    <div class="max-w-xl mx-auto bg-white border-2 border-amber-400 rounded-2xl p-6 shadow-sm space-y-4">
+      <div class="flex items-center gap-3">
+        <span class="px-2.5 py-1 rounded-full text-xs font-extrabold bg-amber-100 text-amber-800">EMAIL VERIFICATION REQUIRED</span>
+        <h2 class="text-base font-extrabold text-slate-900">Verify Your Email Before Accessing Business Records</h2>
+      </div>
+      <p class="text-xs text-slate-600 leading-relaxed">
+        In accordance with TicketPilot security rules, normal business functionality (creating tickets, listings, sales, and exports) is locked until your email (<strong id="unverifiedEmailLabel"></strong>) is verified.
+      </p>
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-2">
+        <p class="font-bold text-slate-700">Simulated Outbox Verification Token:</p>
+        <code id="simulatedVerToken" class="block bg-slate-900 text-emerald-400 px-3 py-2 rounded font-mono text-[11px]"></code>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <button id="completeEmailVerificationBtn" type="button" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition">
+          ✓ Complete Email Verification Now
+        </button>
+        <button id="resendVerificationBtn" type="button" class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition">
+          Resend Verification Email
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- MAIN APPLICATION SHELL (SIDEBAR #0F172A + MAIN #F8FAFC)                 -->
+  <!-- ======================================================================= -->
+  <div id="appMainShell" class="flex-1 flex flex-col lg:flex-row">
+
+    <!-- Left Navigation Sidebar (#0F172A) -->
+    <aside class="sidebar-navy text-slate-200 w-full lg:w-64 flex-shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-800">
+      <div>
+        <!-- Brand Header -->
+        <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-extrabold text-base shadow">
+              TP
+            </div>
+            <div>
+              <h1 class="text-base font-extrabold tracking-tight text-white">TicketPilot</h1>
+              <p class="text-[11px] text-slate-400">Reseller Inventory & Safety</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 9 Required Main Navigation Sections -->
+        <nav class="p-3 space-y-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-1" aria-label="Main Navigation">
+          <button type="button" data-nav="dashboard" class="nav-btn flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-blue-600 text-white transition">
+            <span>1. Dashboard</span>
+          </button>
+          <button type="button" data-nav="tickets" class="nav-btn flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition">
+            <span>2. My Tickets</span>
+            <span id="navBadgeNeedsAction" class="hidden px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-600 text-white">0</span>
+          </button>
+          <button type="button" data-nav="listings" class="nav-btn flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition">
+            <span>3. External Listings</span>
+          </button>
+          <button type="button" data-nav="sales" class="nav-btn flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition">
+            <span>4. Sales</span>
+          </button>
+          <button type="button" data-nav="payouts" class="nav-btn flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition">
+            <span>5. Payouts</span>
+          </button>
+          <button type="button" data-nav="reports" class="nav-btn flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition">
+            <span>6. Reports & CSV</span>
+          </button>
+          <button type="button" data-nav="alerts" class="nav-btn flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition">
+            <span>7. Alerts & Reminders</span>
+            <span id="navBadgeAlerts" class="hidden px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-slate-950">0</span>
+          </button>
+          <button type="button" data-nav="privacy" class="nav-btn flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition">
+            <span>8. Account & Privacy</span>
+          </button>
+          <button type="button" data-nav="settings" class="nav-btn flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition">
+            <span>9. Settings</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Sidebar Footer: Currency View Filter & User Card -->
+      <div class="p-4 border-t border-slate-800 space-y-3 text-xs">
+        <div>
+          <label for="globalCurrencySelect" class="block text-[11px] font-semibold text-slate-400 mb-1">Active Financial Currency View</label>
+          <select id="globalCurrencySelect" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-blue-500">
+            <option value="USD">USD ($) — US Dollar</option>
+            <option value="EUR">EUR (€) — Euro</option>
+            <option value="GBP">GBP (£) — British Pound</option>
+          </select>
+          <p class="text-[10px] text-slate-400 mt-1">Currencies are never mixed without explicit conversion.</p>
+        </div>
+        <div class="pt-2 border-t border-slate-800 flex items-center justify-between">
+          <div class="truncate">
+            <p id="sidebarUserName" class="font-bold text-white truncate">Alex Rivera</p>
+            <p id="sidebarUserEmail" class="text-[11px] text-slate-400 truncate">alex@ticketpilot.io</p>
+          </div>
+          <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">Free Launch</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Right Content Area (#F8FAFC) -->
+    <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto space-y-6 max-w-7xl mx-auto w-full">
+
+      <!-- Global Critical "Needs Action" Duplicate-Sale Safety Banner -->
+      <div id="globalNeedsActionAlert" class="hidden bg-red-50 border-2 border-red-500 rounded-2xl p-4 sm:p-5 shadow-sm">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="space-y-1 max-w-3xl">
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-red-600 text-white uppercase">Duplicate-Sale Risk — Needs Action</span>
+              <h2 id="needsActionBannerTitle" class="text-sm sm:text-base font-extrabold text-red-950">Unresolved External Listings Require Manual Removal</h2>
+            </div>
+            <p class="text-xs text-red-800 leading-relaxed">
+              TicketPilot has <strong>no automated marketplace integration</strong> and cannot remove listings on StubHub, Viagogo, or Ticketmaster for you. External platforms may still permit purchases and charge 100% replacement penalties until you open each marketplace below, deactivate the listing, and confirm removal here.
+            </p>
+          </div>
+          <button id="jumpToNeedsActionBtn" type="button" class="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-sm transition">
+            Resolve Remaining Listings Now →
+          </button>
+        </div>
+        <div id="needsActionResolutionCards" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- SECTION 1: DASHBOARD                                                -->
+      <!-- =================================================================== -->
+      <section id="sec-dashboard" class="space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-extrabold text-slate-900">Reseller Operations Dashboard</h2>
+            <p class="text-xs text-slate-500">Real-time metrics computed strictly from verified database records in <span class="font-bold text-blue-700 active-curr-label">USD</span></p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" id="dashAddTicketBtn" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition">
+              + Add Ticket Inventory
+            </button>
+            <button type="button" id="dashRecordSaleBtn" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition">
+              $ Record Completed Sale
+            </button>
+          </div>
+        </div>
+
+        <!-- 9 Required Summary KPI Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-[11px] font-semibold text-slate-500">1. Total Inventory Records</p>
+            <p id="kpiTotalInventory" class="text-2xl font-extrabold text-slate-900 mt-1">0</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Active non-archived blocks</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-[11px] font-semibold text-slate-500">2. Tickets Currently Listed</p>
+            <p id="kpiListedTickets" class="text-2xl font-extrabold text-blue-600 mt-1">0</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">On external marketplaces</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-[11px] font-semibold text-slate-500">3. Upcoming Events</p>
+            <p id="kpiUpcomingEvents" class="text-2xl font-extrabold text-slate-900 mt-1">0</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Future event dates</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-[11px] font-semibold text-slate-500">4. Tickets Requiring Action</p>
+            <p id="kpiNeedsAction" class="text-2xl font-extrabold text-red-600 mt-1">0</p>
+            <p class="text-[11px] text-red-600 font-semibold mt-0.5">Unresolved cross-listings</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-[11px] font-semibold text-slate-500">5. Recorded Gross Sales</p>
+            <p id="kpiGrossSales" class="text-2xl font-extrabold text-slate-900 mt-1">$0.00</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Confirmed sales only</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-[11px] font-semibold text-slate-500">6. Realized Profit</p>
+            <p id="kpiRealizedProfit" class="text-2xl font-extrabold text-emerald-600 mt-1">$0.00</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Excludes unsold inventory</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-[11px] font-semibold text-slate-500">7. Expected Payouts</p>
+            <p id="kpiExpectedPayouts" class="text-2xl font-extrabold text-amber-600 mt-1">$0.00</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Awaiting settlement</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-[11px] font-semibold text-slate-500">8. Received Payouts</p>
+            <p id="kpiReceivedPayouts" class="text-2xl font-extrabold text-emerald-700 mt-1">$0.00</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Confirmed in bank</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-[11px] font-semibold text-slate-500">9. Overdue Payouts</p>
+            <p id="kpiOverduePayouts" class="text-2xl font-extrabold text-red-600 mt-1">0</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Past expected date</p>
+          </div>
+          <div class="bg-slate-900 text-white rounded-2xl p-4 shadow-sm">
+            <p class="text-[11px] font-semibold text-slate-300">Unsold Inventory Capital</p>
+            <p id="kpiUnsoldCapital" class="text-2xl font-extrabold text-blue-300 mt-1">$0.00</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Not counted in realized P&L</p>
+          </div>
+        </div>
+
+        <!-- Chart & Activity Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h3 class="text-sm font-bold text-slate-900">Confirmed Gross Sales vs. Realized Profit (<span class="active-curr-label">USD</span>)</h3>
+                <p class="text-xs text-slate-500">Derived strictly from completed sales records</p>
+              </div>
+            </div>
+            <div id="chartEmptyOnboarding" class="hidden py-12 text-center text-xs text-slate-500 space-y-2">
+              <p class="font-bold text-slate-700">No confirmed sales in this currency yet.</p>
+              <p>Add a ticket and record a completed sale to view verified profit trends.</p>
+            </div>
+            <div id="chartCanvasContainer" class="relative h-64 w-full">
+              <canvas id="dashboardProfitChart"></canvas>
+            </div>
+          </div>
+
+          <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 mb-1">Recent Audit & Security Activity</h3>
+              <p class="text-xs text-slate-500 mb-3">Timestamped log of inventory, sales, and manual listing confirmations</p>
+              <div id="dashboardActivityList" class="space-y-2.5 max-h-64 overflow-y-auto pr-1"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- SECTION 2: MY TICKETS (INVENTORY CRUD, SEARCH, FILTER, SORT)        -->
+      <!-- =================================================================== -->
+      <section id="sec-tickets" class="hidden space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-extrabold text-slate-900">My Tickets Inventory</h2>
+            <p class="text-xs text-slate-500">Each record represents a single ticket or uniform seat block you own. Sold tickets cannot be permanently deleted.</p>
+          </div>
+        </div>
+
+        <!-- Add Ticket Form Card -->
+        <form id="createTicketForm" class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+          <h3 class="text-xs font-extrabold uppercase tracking-wider text-blue-700">Add New Ticket Inventory Record</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 text-xs">
+            <div>
+              <label for="tkEventInput" class="block font-semibold text-slate-700 mb-1">Event Name *</label>
+              <input id="tkEventInput" type="text" required placeholder="e.g., NBA Lakers vs Celtics" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label for="tkVenueInput" class="block font-semibold text-slate-700 mb-1">Venue *</label>
+              <input id="tkVenueInput" type="text" required placeholder="e.g., Crypto.com Arena" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label for="tkDateInput" class="block font-semibold text-slate-700 mb-1">Event Date & Time *</label>
+              <input id="tkDateInput" type="datetime-local" required class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label for="tkSectionInput" class="block font-semibold text-slate-700 mb-1">Section *</label>
+                <input id="tkSectionInput" type="text" required placeholder="112" class="w-full border border-slate-300 rounded-lg px-2.5 py-2" />
+              </div>
+              <div>
+                <label for="tkRowInput" class="block font-semibold text-slate-700 mb-1">Row *</label>
+                <input id="tkRowInput" type="text" required placeholder="8" class="w-full border border-slate-300 rounded-lg px-2.5 py-2" />
+              </div>
+              <div>
+                <label for="tkSeatsInput" class="block font-semibold text-slate-700 mb-1">Seats</label>
+                <input id="tkSeatsInput" type="text" placeholder="1-2" class="w-full border border-slate-300 rounded-lg px-2.5 py-2" />
+              </div>
+            </div>
+            <div>
+              <label for="tkQtyInput" class="block font-semibold text-slate-700 mb-1">Quantity *</label>
+              <input id="tkQtyInput" type="number" min="1" max="100" value="2" required class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label for="tkCostInput" class="block font-semibold text-slate-700 mb-1">Total Acquisition Cost *</label>
+              <input id="tkCostInput" type="number" min="0" step="0.01" value="320.00" required class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label for="tkCurrInput" class="block font-semibold text-slate-700 mb-1">Currency *</label>
+              <select id="tkCurrInput" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white">
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+              </select>
+            </div>
+            <div class="flex items-end">
+              <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg transition">
+                + Save Ticket Record
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <!-- Search, Filter, Sort Bar -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-wrap items-center justify-between gap-3 text-xs">
+          <input id="ticketSearchInput" type="text" placeholder="Search by event name, venue, or section..." class="flex-1 min-w-[220px] border border-slate-300 rounded-lg px-3 py-2" />
+          <div class="flex flex-wrap items-center gap-2">
+            <select id="ticketStatusFilter" aria-label="Filter tickets by status" class="border border-slate-300 rounded-lg px-3 py-2 bg-white">
+              <option value="ALL">All Active Statuses</option>
+              <option value="Needs Action">Needs Action (Urgent)</option>
+              <option value="Listed">Listed</option>
+              <option value="Available">Available</option>
+              <option value="Sold">Sold</option>
+              <option value="Archived">Archived</option>
+            </select>
+            <select id="ticketSortSelect" aria-label="Sort tickets" class="border border-slate-300 rounded-lg px-3 py-2 bg-white">
+              <option value="event_asc">Sort: Event Date (Soonest)</option>
+              <option value="cost_desc">Sort: Acquisition Cost (High → Low)</option>
+              <option value="status">Sort: Status</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Tickets Inventory Table -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                <th class="py-3 px-4">Event & Venue</th>
+                <th class="py-3 px-3">Date</th>
+                <th class="py-3 px-3">Location (Sec/Row/Seats)</th>
+                <th class="py-3 px-3">Qty</th>
+                <th class="py-3 px-3">Acquisition Cost</th>
+                <th class="py-3 px-3">Lowest Active Listing (By Currency)</th>
+                <th class="py-3 px-3">Status</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ticketsTableBody" class="divide-y divide-slate-200"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- SECTION 3: EXTERNAL LISTINGS                                        -->
+      <!-- =================================================================== -->
+      <section id="sec-listings" class="hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-extrabold text-slate-900">External Marketplace Listings</h2>
+          <p class="text-xs text-slate-500">Track where each ticket block is listed across StubHub, Viagogo, Ticketmaster Resale, SeatGeek, Vivid Seats, and TickPick.</p>
+        </div>
+
+        <!-- Add External Listing Form -->
+        <form id="createListingForm" class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4 text-xs">
+          <h3 class="text-xs font-extrabold uppercase tracking-wider text-blue-700">Log External Marketplace Listing</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+            <div class="lg:col-span-2">
+              <label for="lstTicketSelect" class="block font-semibold text-slate-700 mb-1">Select Ticket Inventory *</label>
+              <select id="lstTicketSelect" required class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white"></select>
+            </div>
+            <div>
+              <label for="lstMarketSelect" class="block font-semibold text-slate-700 mb-1">Marketplace *</label>
+              <select id="lstMarketSelect" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white">
+                <option value="StubHub">StubHub</option>
+                <option value="Viagogo">Viagogo</option>
+                <option value="Ticketmaster Resale">Ticketmaster Resale</option>
+                <option value="SeatGeek">SeatGeek</option>
+                <option value="Vivid Seats">Vivid Seats</option>
+                <option value="TickPick">TickPick</option>
+              </select>
+            </div>
+            <div>
+              <label for="lstAskPriceInput" class="block font-semibold text-slate-700 mb-1">Total Asking Price *</label>
+              <input id="lstAskPriceInput" type="number" min="1" step="0.01" value="540.00" required class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label for="lstCurrSelect" class="block font-semibold text-slate-700 mb-1">Currency *</label>
+              <select id="lstCurrSelect" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white">
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+              </select>
+            </div>
+            <div>
+              <label for="lstRefInput" class="block font-semibold text-slate-700 mb-1">Marketplace Ref ID</label>
+              <input id="lstRefInput" type="text" placeholder="e.g., SH-88412" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+            <div class="sm:col-span-9">
+              <label for="lstUrlInput" class="block font-semibold text-slate-700 mb-1">External Listing URL (Optional)</label>
+              <input id="lstUrlInput" type="url" placeholder="https://www.stubhub.com/..." class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+            </div>
+            <div class="sm:col-span-3">
+              <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg transition">
+                + Add External Listing
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <!-- Listings Table -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                <th class="py-3 px-4">Ticket / Event</th>
+                <th class="py-3 px-3">Marketplace</th>
+                <th class="py-3 px-3">Ref ID & Link</th>
+                <th class="py-3 px-3">Asking Price</th>
+                <th class="py-3 px-3">Listing Status</th>
+                <th class="py-3 px-3">Last Manually Verified</th>
+                <th class="py-3 px-4 text-right">Manual Actions</th>
+              </tr>
+            </thead>
+            <tbody id="listingsTableBody" class="divide-y divide-slate-200"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- SECTION 4: SALES MANAGEMENT & DUPLICATE-SALE TRIGGER                -->
+      <!-- =================================================================== -->
+      <section id="sec-sales" class="hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-extrabold text-slate-900">Completed Sales & Profit Ledger</h2>
+          <p class="text-xs text-slate-500">Recording a sale checks all other active listings for that ticket and locks the ticket in <strong>"Needs Action"</strong> until you manually confirm each remaining listing is removed.</p>
+        </div>
+
+        <!-- Record Sale Form -->
+        <form id="recordSaleForm" class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4 text-xs">
+          <h3 class="text-xs font-extrabold uppercase tracking-wider text-emerald-700">Record Completed Ticket Sale</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+            <div class="lg:col-span-2">
+              <label for="saleTicketSelect" class="block font-semibold text-slate-700 mb-1">Select Ticket Sold *</label>
+              <select id="saleTicketSelect" required class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white"></select>
+            </div>
+            <div>
+              <label for="saleMarketSelect" class="block font-semibold text-slate-700 mb-1">Sold On Marketplace *</label>
+              <select id="saleMarketSelect" class="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white">
+                <option value="StubHub">StubHub</option>
+                <option value="Viagogo">Viagogo</option>
+                <option value="Ticketmaster Resale">Ticketmaster Resale</option>
+                <option value="SeatGeek">SeatGeek</option>
+                <option value="Vivid Seats">Vivid Seats</option>
+                <option value="TickPick">TickPick</option>
+                <option value="Direct / Private">Direct / Private</option>
+              </select>
+            </div>
+            <div>
+              <label for="saleGrossInput" class="block font-semibold text-slate-700 mb-1">Gross Sale Amount *</label>
+              <input id="saleGrossInput" type="number" min="0" step="0.01" value="620.00" required class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label for="saleFeeInput" class="block font-semibold text-slate-700 mb-1">Marketplace Fee *</label>
+              <input id="saleFeeInput" type="number" min="0" step="0.01" value="93.00" required class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label for="saleOtherCostInput" class="block font-semibold text-slate-700 mb-1">Other Transfer Costs</label>
+              <input id="saleOtherCostInput" type="number" min="0" step="0.01" value="0.00" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+            <div class="sm:col-span-3">
+              <label for="saleOrderRefInput" class="block font-semibold text-slate-700 mb-1">External Order ID</label>
+              <input id="saleOrderRefInput" type="text" placeholder="ORD-99201" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+            </div>
+            <div class="sm:col-span-3">
+              <label for="salePayoutDateInput" class="block font-semibold text-slate-700 mb-1">Expected Payout Date *</label>
+              <input id="salePayoutDateInput" type="date" required class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+            </div>
+            <div class="sm:col-span-3">
+              <label for="saleNotesInput" class="block font-semibold text-slate-700 mb-1">Sale Notes</label>
+              <input id="saleNotesInput" type="text" placeholder="Mobile transfer completed" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+            </div>
+            <div class="sm:col-span-3">
+              <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg transition">
+                ✓ Record Sale & Check Listings
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <!-- Sales Table -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                <th class="py-3 px-4">Event & Ticket</th>
+                <th class="py-3 px-3">Marketplace & Order ID</th>
+                <th class="py-3 px-3">Gross Sale</th>
+                <th class="py-3 px-3">Fees & Costs</th>
+                <th class="py-3 px-3">Net Proceeds</th>
+                <th class="py-3 px-3">Acquisition Cost</th>
+                <th class="py-3 px-3">Realized Profit</th>
+                <th class="py-3 px-3">Ticket Safety Status</th>
+              </tr>
+            </thead>
+            <tbody id="salesTableBody" class="divide-y divide-slate-200"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- SECTION 5: PAYOUT TRACKING                                          -->
+      <!-- =================================================================== -->
+      <section id="sec-payouts" class="hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-extrabold text-slate-900">Payout Tracking (Expected vs. Actual Received)</h2>
+          <p class="text-xs text-slate-500">Projected payouts are never counted as received cash until you explicitly confirm bank/payment receipt.</p>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                <th class="py-3 px-4">Event & Order</th>
+                <th class="py-3 px-3">Marketplace</th>
+                <th class="py-3 px-3">Expected Payout</th>
+                <th class="py-3 px-3">Expected Date</th>
+                <th class="py-3 px-3">Actual Received</th>
+                <th class="py-3 px-3">Actual Receipt Date</th>
+                <th class="py-3 px-3">Payout Status</th>
+                <th class="py-3 px-4 text-right">Confirm Receipt</th>
+              </tr>
+            </thead>
+            <tbody id="payoutsTableBody" class="divide-y divide-slate-200"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- SECTION 6: REPORTS & FORMULA-SAFE CSV EXPORTS                       -->
+      <!-- =================================================================== -->
+      <section id="sec-reports" class="hidden space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-extrabold text-slate-900">Financial Reports & Authorized CSV Exports</h2>
+            <p class="text-xs text-slate-500">Traceable calculations segregated by currency. CSV exports sanitize formula characters (<code class="font-mono">=, +, -, @</code>) against spreadsheet injection.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="exportSalesCsvBtn" type="button" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition">
+              ⬇ Download Authorized Sales CSV (<span class="active-curr-label">USD</span>)
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+          <h3 class="text-sm font-bold text-slate-900">Traceable Realized Profit Equation (<span class="active-curr-label">USD</span>)</h3>
+          <div id="reportEquationBreakdown" class="grid grid-cols-1 sm:grid-cols-5 gap-3 text-xs"></div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
+          <h3 class="text-sm font-bold text-slate-900">Breakdown by Marketplace (<span class="active-curr-label">USD</span>)</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                  <th class="py-2.5 px-3">Marketplace</th>
+                  <th class="py-2.5 px-3">Completed Sales</th>
+                  <th class="py-2.5 px-3">Gross Sales</th>
+                  <th class="py-2.5 px-3">Marketplace Fees</th>
+                  <th class="py-2.5 px-3">Sold Acquisition Cost</th>
+                  <th class="py-2.5 px-3">Realized Profit</th>
+                </tr>
+              </thead>
+              <tbody id="reportMarketplaceBody" class="divide-y divide-slate-200"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- SECTION 7: ALERTS & REMINDERS                                       -->
+      <!-- =================================================================== -->
+      <section id="sec-alerts" class="hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-extrabold text-slate-900">Persistent Alerts & Reminders</h2>
+          <p class="text-xs text-slate-500">In-app persistent alerts for duplicate-sale risks, stale listings, and overdue payouts (external email/push notifications require SMTP configuration).</p>
+        </div>
+        <div id="alertsListContainer" class="space-y-3"></div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- SECTION 8: ACCOUNT & PRIVACY                                        -->
+      <!-- =================================================================== -->
+      <section id="sec-privacy" class="hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-extrabold text-slate-900">Account, Data Export & Privacy Notice</h2>
+          <p class="text-xs text-slate-500">Manage your profile, export your authorized records, or request reauthenticated account deletion.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-xs">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
+            <h3 class="text-sm font-bold text-slate-900">Transparent Privacy & Data Retention Notice</h3>
+            <ul class="list-disc pl-5 space-y-1.5 text-slate-600 leading-relaxed">
+              <li><strong>Data Collected:</strong> Full name, email address, hashed password, and the ticket inventory, external listing URLs, sales, and payout records you manually enter.</li>
+              <li><strong>What We Never Collect:</strong> TicketPilot never collects or stores your StubHub, Viagogo, or Ticketmaster login passwords or payment card numbers.</li>
+              <li><strong>Isolation & Storage:</strong> Every record is scoped to your authenticated user ID via PostgreSQL Row-Level Security (<code class="font-mono">auth.uid() = user_id</code>).</li>
+              <li><strong>Deletion & Backups Disclosure:</strong> Deleting your account immediately purges all active database records. On cloud PostgreSQL plans with automated point-in-time recovery backups, encrypted backup snapshots expire according to the provider's retention period (7 days on Supabase Pro; 0 automated backups on Supabase Free).</li>
+            </ul>
+            <div class="pt-3">
+              <button id="exportFullJsonBtn" type="button" class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold transition">
+                ⬇ Export All My Account Data (JSON)
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-red-200 p-5 shadow-sm space-y-3">
+            <h3 class="text-sm font-bold text-red-700">Reauthenticated Account Deletion</h3>
+            <p class="text-slate-600">To permanently delete your active account and all associated tickets, listings, sales, and payouts, re-enter your password and type <code class="font-mono font-bold text-red-700">DELETE MY ACCOUNT</code>.</p>
+            <form id="deleteAccountForm" class="space-y-3">
+              <div>
+                <label for="delPassInput" class="block font-semibold text-slate-700 mb-1">Confirm Password</label>
+                <input id="delPassInput" type="password" required placeholder="Enter your password" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+              </div>
+              <div>
+                <label for="delPhraseInput" class="block font-semibold text-slate-700 mb-1">Confirmation Phrase</label>
+                <input id="delPhraseInput" type="text" required placeholder="DELETE MY ACCOUNT" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+              </div>
+              <button type="submit" class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold transition">
+                Delete Account & Purge Active Records
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- SECTION 9: SETTINGS & ZERO-BUDGET DEPLOYMENT ARCHITECTURE           -->
+      <!-- =================================================================== -->
+      <section id="sec-settings" class="hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-extrabold text-slate-900">Application Preferences & $0 Launch Architecture</h2>
+          <p class="text-xs text-slate-500">Configure stale-listing thresholds and review verified $0 hosting commercial eligibility.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-xs">
+          <form id="preferencesForm" class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+            <h3 class="text-sm font-bold text-slate-900">Alert & Verification Thresholds</h3>
+            <div>
+              <label for="prefStaleDaysInput" class="block font-semibold text-slate-700 mb-1">Flag External Listings as Stale After (Days)</label>
+              <input id="prefStaleDaysInput" type="number" min="1" max="90" value="7" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label for="prefUpcomingDaysInput" class="block font-semibold text-slate-700 mb-1">Upcoming Event Warning Window (Days)</label>
+              <input id="prefUpcomingDaysInput" type="number" min="1" max="60" value="14" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+            </div>
+            <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold transition">
+              Save Preferences
+            </button>
+          </form>
+
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
+            <h3 class="text-sm font-bold text-slate-900">Future Monetization Status (Inactive at Launch)</h3>
+            <p class="text-slate-600 leading-relaxed">
+              Subscription billing is <strong>disabled</strong> for the $0 initial launch so early resellers can onboard without friction or payment cards. The database schema (<code class="font-mono">profiles.subscription_tier</code>) is ready for a future webhook-verified merchant billing module ($4.99/mo planning reference) once user demand is validated.
+            </p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- APPLICATION LOGIC: MULTI-TENANT RELATIONAL STORE, RLS & STATE MACHINE   -->
+  <!-- ======================================================================= -->
+  <script>
+    (function () {
+      const STORAGE_KEY = 'ticketpilot_v1_relational_db';
+
+      function toCents(amountStrOrNum) {
+        const val = Number(amountStrOrNum);
+        if (isNaN(val)) return 0;
+        return Math.round(val * 100);
+      }
+
+      function formatMoney(cents, currency) {
+        const val = (Number(cents || 0) / 100).toFixed(2);
+        const sym = currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$';
+        return sym + Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + currency;
+      }
+
+      function sanitizeCsvCell(value) {
+        if (value === null || value === undefined) return '';
+        const text = String(value);
+        if (/^[=+\-@\t\r]/.test(text)) {
+          return "'" + text;
+        }
+        return text;
+      }
+
+      function getMarketplaceBadgeClass(marketplace) {
+        const m = (marketplace || '').toLowerCase();
+        if (m.includes('stubhub')) return 'badge-stubhub';
+        if (m.includes('viagogo')) return 'badge-viagogo';
+        if (m.includes('ticketmaster')) return 'badge-ticketmaster';
+        if (m.includes('seatgeek')) return 'badge-seatgeek';
+        if (m.includes('vivid')) return 'badge-vividseats';
+        if (m.includes('tickpick')) return 'badge-tickpick';
+        return 'badge-other';
+      }
+
+      // Initial Seeded Multi-User Database (Demonstrates User A vs User B Isolation + Duplicate-Sale Safety)
+      function getInitialDatabase() {
+        return {
+          currentUserId: 'user_a',
+          activeCurrency: 'USD',
+          users: [
+            {
+              id: 'user_a',
+              full_name: 'Alex Rivera (User A — Independent Reseller)',
+              email: 'alex@ticketpilot.io',
+              password: 'Password123',
+              email_verified: true,
+              verification_token: null,
+              stale_days: 7,
+              upcoming_days: 14
+            },
+            {
+              id: 'user_b',
+              full_name: 'Marcus Sterling (User B — Isolated Account)',
+              email: 'marcus@ LondonTickets.co.uk',
+              password: 'Password123',
+              email_verified: true,
+              verification_token: null,
+              stale_days: 7,
+              upcoming_days: 14
+            }
+          ],
+          tickets: [
+            {
+              id: 'tk_a1',
+              user_id: 'user_a',
+              event_name: 'Coldplay — Music of the Spheres Tour',
+              event_datetime: '2026-11-18T20:00',
+              venue: 'MetLife Stadium, NJ',
+              section: '115',
+              row_name: '12',
+              seat_range: '5-6',
+              quantity: 2,
+              acquisition_cost_cents: 36000,
+              currency: 'USD',
+              status: 'Needs Action',
+              created_at: '2026-10-20T14:00:00Z'
+            },
+            {
+              id: 'tk_a2',
+              user_id: 'user_a',
+              event_name: 'NBA Los Angeles Lakers vs Boston Celtics',
+              event_datetime: '2026-11-25T19:30',
+              venue: 'Crypto.com Arena, LA',
+              section: '102',
+              row_name: '6',
+              seat_range: '9-10',
+              quantity: 2,
+              acquisition_cost_cents: 44000,
+              currency: 'USD',
+              status: 'Listed',
+              created_at: '2026-10-22T10:00:00Z'
+            },
+            {
+              id: 'tk_a3',
+              user_id: 'user_a',
+              event_name: 'UFC 314 — Championship Main Card',
+              event_datetime: '2026-11-08T22:00',
+              venue: 'T-Mobile Arena, Las Vegas',
+              section: '204',
+              row_name: '4',
+              seat_range: '1-2',
+              quantity: 2,
+              acquisition_cost_cents: 30000,
+              currency: 'USD',
+              status: 'Sold',
+              created_at: '2026-10-15T09:00:00Z'
+            },
+            {
+              id: 'tk_b1',
+              user_id: 'user_b',
+              event_name: 'Arsenal vs Liverpool — Premier League',
+              event_datetime: '2026-11-29T16:30',
+              venue: 'Emirates Stadium, London',
+              section: 'Clock End',
+              row_name: '10',
+              seat_range: '14-15',
+              quantity: 2,
+              acquisition_cost_cents: 28000,
+              currency: 'GBP',
+              status: 'Listed',
+              created_at: '2026-10-21T12:00:00Z'
+            }
+          ],
+          listings: [
+            {
+              id: 'lst_a1_sh',
+              user_id: 'user_a',
+              ticket_id: 'tk_a1',
+              marketplace_name: 'StubHub',
+              external_listing_url: 'https://www.stubhub.com/',
+              marketplace_reference_id: 'SH-90411',
+              asking_price_cents: 64000,
+              currency: 'USD',
+              status: 'Sold',
+              last_verified_at: '2026-10-27'
+            },
+            {
+              id: 'lst_a1_vg',
+              user_id: 'user_a',
+              ticket_id: 'tk_a1',
+              marketplace_name: 'Viagogo',
+              external_listing_url: 'https://www.viagogo.com/',
+              marketplace_reference_id: 'VG-77219',
+              asking_price_cents: 66000,
+              currency: 'USD',
+              status: 'Active',
+              last_verified_at: '2026-10-26'
+            },
+            {
+              id: 'lst_a1_tm',
+              user_id: 'user_a',
+              ticket_id: 'tk_a1',
+              marketplace_name: 'Ticketmaster Resale',
+              external_listing_url: 'https://www.ticketmaster.com/',
+              marketplace_reference_id: 'TM-55108',
+              asking_price_cents: 65000,
+              currency: 'USD',
+              status: 'Active',
+              last_verified_at: '2026-10-26'
+            },
+            {
+              id: 'lst_a2_sh',
+              user_id: 'user_a',
+              ticket_id: 'tk_a2',
+              marketplace_name: 'StubHub',
+              external_listing_url: 'https://www.stubhub.com/',
+              marketplace_reference_id: 'SH-33910',
+              asking_price_cents: 72000,
+              currency: 'USD',
+              status: 'Active',
+              last_verified_at: '2026-10-27'
+            },
+            {
+              id: 'lst_a2_tp',
+              user_id: 'user_a',
+              ticket_id: 'tk_a2',
+              marketplace_name: 'TickPick',
+              external_listing_url: 'https://www.tickpick.com/',
+              marketplace_reference_id: 'TP-11804',
+              asking_price_cents: 69500,
+              currency: 'USD',
+              status: 'Active',
+              last_verified_at: '2026-10-16'
+            },
+            {
+              id: 'lst_b1_vg',
+              user_id: 'user_b',
+              ticket_id: 'tk_b1',
+              marketplace_name: 'Viagogo',
+              external_listing_url: 'https://www.viagogo.co.uk/',
+              marketplace_reference_id: 'VG-UK-441',
+              asking_price_cents: 46000,
+              currency: 'GBP',
+              status: 'Active',
+              last_verified_at: '2026-10-26'
+            }
+          ],
+          sales: [
+            {
+              id: 'sale_a1',
+              user_id: 'user_a',
+              ticket_id: 'tk_a1',
+              sold_listing_id: 'lst_a1_sh',
+              sale_datetime: '2026-10-27',
+              marketplace_name: 'StubHub',
+              external_order_id: 'ORD-SH-88210',
+              gross_sale_cents: 64000,
+              marketplace_fee_cents: 9600,
+              other_costs_cents: 0,
+              net_proceeds_cents: 54400,
+              realized_profit_cents: 18400,
+              currency: 'USD',
+              notes: 'Sold on StubHub; Viagogo and Ticketmaster listings still active!'
+            },
+            {
+              id: 'sale_a3',
+              user_id: 'user_a',
+              ticket_id: 'tk_a3',
+              sold_listing_id: null,
+              sale_datetime: '2026-10-21',
+              marketplace_name: 'TickPick',
+              external_order_id: 'ORD-TP-40192',
+              gross_sale_cents: 48000,
+              marketplace_fee_cents: 4800,
+              other_costs_cents: 0,
+              net_proceeds_cents: 43200,
+              realized_profit_cents: 13200,
+              currency: 'USD',
+              notes: 'Clean single-platform sale'
+            }
+          ],
+          payouts: [
+            {
+              id: 'pay_a1',
+              user_id: 'user_a',
+              sale_id: 'sale_a1',
+              ticket_id: 'tk_a1',
+              marketplace_name: 'StubHub',
+              expected_payout_cents: 54400,
+              currency: 'USD',
+              expected_payout_date: '2026-11-23',
+              actual_received_cents: null,
+              actual_receipt_date: null,
+              payout_status: 'Expected',
+              external_payout_reference: 'SH-PAY-PENDING'
+            },
+            {
+              id: 'pay_a3',
+              user_id: 'user_a',
+              sale_id: 'sale_a3',
+              ticket_id: 'tk_a3',
+              marketplace_name: 'TickPick',
+              expected_payout_cents: 43200,
+              currency: 'USD',
+              expected_payout_date: '2026-10-25',
+              actual_received_cents: 43200,
+              actual_receipt_date: '2026-10-25',
+              payout_status: 'Paid',
+              external_payout_reference: 'ACH-TP-99102'
+            }
+          ],
+          activityLogs: [
+            {
+              id: 'log_1',
+              user_id: 'user_a',
+              timestamp: '2026-10-27 14:22 UTC',
+              action: 'DUPLICATE_SALE_WARNING',
+              detail: 'Sale recorded for Coldplay (StubHub). Ticket locked in "Needs Action" until Viagogo (VG-77219) and Ticketmaster (TM-55108) listings are manually confirmed removed.'
+            },
+            {
+              id: 'log_2',
+              user_id: 'user_a',
+              timestamp: '2026-10-25 11:05 UTC',
+              action: 'PAYOUT_RECEIVED',
+              detail: 'Confirmed $432.00 USD payout received from TickPick (Ref: ACH-TP-99102).'
+            }
+          ]
+        };
+      }
+
+      let db = getInitialDatabase();
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && Array.isArray(parsed.users) && Array.isArray(parsed.tickets)) {
+            db = parsed;
+          }
+        }
+      } catch (e) {}
+
+      function saveDb() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+        } catch (e) {}
+      }
+
+      function currentUser() {
+        return db.users.find(u => u.id === db.currentUserId) || db.users[0];
+      }
+
+      // Strict Row-Level Security (RLS) Helpers scoped to currentUser().id
+      function userTickets() {
+        const uid = currentUser().id;
+        return db.tickets.filter(t => t.user_id === uid);
+      }
+      function userListings() {
+        const uid = currentUser().id;
+        return db.listings.filter(l => l.user_id === uid);
+      }
+      function userSales() {
+        const uid = currentUser().id;
+        return db.sales.filter(s => s.user_id === uid);
+      }
+      function userPayouts() {
+        const uid = currentUser().id;
+        return db.payouts.filter(p => p.user_id === uid);
+      }
+      function userLogs() {
+        const uid = currentUser().id;
+        return db.activityLogs.filter(a => a.user_id === uid);
+      }
+
+      function logUserEvent(action, detail) {
+        const nowStr = new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+        db.activityLogs.unshift({
+          id: 'log_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          user_id: currentUser().id,
+          timestamp: nowStr,
+          action,
+          detail
+        });
+      }
+
+      let toastTimer = null;
+      function showToast(message, isError) {
+        const box = document.getElementById('toastNotification');
+        const inner = document.getElementById('toastInner');
+        const msg = document.getElementById('toastMessage');
+        msg.textContent = message;
+        inner.className = isError
+          ? 'px-4 py-3 rounded-xl shadow-lg border text-xs font-bold flex items-center gap-2 bg-red-600 text-white border-red-700'
+          : 'px-4 py-3 rounded-xl shadow-lg border text-xs font-bold flex items-center gap-2 bg-slate-900 text-white border-slate-700';
+        box.classList.remove('hidden');
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => box.classList.add('hidden'), 3200);
+      }
+
+      // Enforce Unresolved Listings -> Ticket Status Sync
+      function syncTicketStatusesForCurrentUser() {
+        const tickets = userTickets();
+        const listings = userListings();
+        const sales = userSales();
+
+        tickets.forEach(tk => {
+          if (tk.status === 'Archived') return;
+          const hasSale = sales.some(s => s.ticket_id === tk.id);
+          const activeListings = listings.filter(l => l.ticket_id === tk.id && (l.status === 'Active' || l.status === 'Pending' || l.status === 'Unknown'));
+          if (hasSale) {
+            tk.status = activeListings.length > 0 ? 'Needs Action' : 'Sold';
+          } else {
+            tk.status = activeListings.length > 0 ? 'Listed' : 'Available';
+          }
+        });
+      }
+
+      // Confirm External Listing Removed (Core Duplicate-Sale Safety Action)
+      function confirmListingRemoved(listingId) {
+        const user = currentUser();
+        if (!user.email_verified) {
+          showToast('Verify your email first.', true);
+          return;
+        }
+        const listing = db.listings.find(l => l.id === listingId && l.user_id === user.id);
+        if (!listing) {
+          showToast('Listing not found or unauthorized.', true);
+          return;
+        }
+        listing.status = 'Removed';
+        listing.last_verified_at = new Date().toISOString().slice(0, 10);
+
+        syncTicketStatusesForCurrentUser();
+        const parentTicket = db.tickets.find(t => t.id === listing.ticket_id && t.user_id === user.id);
+        const remaining = db.listings.filter(
+          l => l.ticket_id === listing.ticket_id && l.user_id === user.id && (l.status === 'Active' || l.status === 'Pending' || l.status === 'Unknown')
+        ).length;
+
+        logUserEvent(
+          'CONFIRM_LISTING_REMOVAL',
+          `Confirmed ${listing.marketplace_name} listing (${listing.marketplace_reference_id || 'No Ref'}) removed for "${parentTicket ? parentTicket.event_name : ''}". Remaining active listings: ${remaining}. Ticket status: ${parentTicket ? parentTicket.status : ''}.`
+        );
+        saveDb();
+        renderAll();
+        if (remaining === 0) {
+          showToast(`All external listings resolved! Ticket transitioned from "Needs Action" to "Sold".`);
+        } else {
+          showToast(`Listing marked Removed. ${remaining} unresolved listing(s) still require manual removal.`);
+        }
+      }
+
+      // Chart.js Instance
+      let profitChart = null;
+      function updateDashboardChart(currSales, curr) {
+        const emptyBox = document.getElementById('chartEmptyOnboarding');
+        const canvasWrap = document.getElementById('chartCanvasContainer');
+        const ctx = document.getElementById('dashboardProfitChart');
+        if (!currSales || currSales.length === 0) {
+          emptyBox.classList.remove('hidden');
+          canvasWrap.classList.add('hidden');
+          return;
+        }
+        emptyBox.classList.add('hidden');
+        canvasWrap.classList.remove('hidden');
+
+        const labels = currSales.map(s => {
+          const tk = userTickets().find(t => t.id === s.ticket_id);
+          return tk ? tk.event_name.slice(0, 22) + '...' : s.marketplace_name;
+        });
+        const grossData = currSales.map(s => Number((s.gross_sale_cents / 100).toFixed(2)));
+        const profitData = currSales.map(s => Number((s.realized_profit_cents / 100).toFixed(2)));
+
+        if (!profitChart && typeof Chart !== 'undefined' && ctx) {
+          profitChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels,
+              datasets: [
+                {
+                  label: `Gross Sale (${curr})`,
+                  data: grossData,
+                  backgroundColor: '#2563EB',
+                  borderRadius: 6
+                },
+                {
+                  label: `Realized Profit (${curr})`,
+                  data: profitData,
+                  backgroundColor: '#16A34A',
+                  borderRadius: 6
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { position: 'top' }
+              }
+            }
+          });
+        } else if (profitChart) {
+          profitChart.data.labels = labels;
+          profitChart.data.datasets[0].label = `Gross Sale (${curr})`;
+          profitChart.data.datasets[0].data = grossData;
+          profitChart.data.datasets[1].label = `Realized Profit (${curr})`;
+          profitChart.data.datasets[1].data = profitData;
+          profitChart.update();
+        }
+      }
+
+      // Main Render Engine
+      function renderAll() {
+        syncTicketStatusesForCurrentUser();
+        const user = currentUser();
+        const curr = db.activeCurrency || 'USD';
+
+        // Top & Sidebar User Info
+        document.getElementById('activeTenantIndicator').textContent =
+          `Active Session: ${user.full_name} [RLS Scoped]`;
+        document.getElementById('sidebarUserName').textContent = user.full_name;
+        document.getElementById('sidebarUserEmail').textContent = user.email;
+        document.getElementById('globalCurrencySelect').value = curr;
+
+        document.querySelectorAll('.active-curr-label').forEach(el => {
+          el.textContent = curr;
+        });
+
+        // Email Verification Gate Check
+        const verBanner = document.getElementById('verificationPendingBanner');
+        const mainShell = document.getElementById('appMainShell');
+        if (!user.email_verified) {
+          verBanner.classList.remove('hidden');
+          mainShell.classList.add('opacity-40', 'pointer-events-none');
+          document.getElementById('unverifiedEmailLabel').textContent = user.email;
+          document.getElementById('simulatedVerToken').textContent =
+            user.verification_token || 'VERIFY-TOKEN-99412-REQUIRED';
+        } else {
+          verBanner.classList.add('hidden');
+          mainShell.classList.remove('opacity-40', 'pointer-events-none');
+        }
+
+        const tickets = userTickets();
+        const listings = userListings();
+        const sales = userSales();
+        const payouts = userPayouts();
+        const todayStr = new Date().toISOString().slice(0, 10);
+
+        // 1. Global Duplicate-Sale "Needs Action" Banner & Resolution Cards
+        const needsActionTickets = tickets.filter(t => t.status === 'Needs Action');
+        const globalAlert = document.getElementById('globalNeedsActionAlert');
+        const cardsContainer = document.getElementById('needsActionResolutionCards');
+        const navBadgeNA = document.getElementById('navBadgeNeedsAction');
+
+        if (needsActionTickets.length > 0) {
+          globalAlert.classList.remove('hidden');
+          navBadgeNA.classList.remove('hidden');
+          navBadgeNA.textContent = String(needsActionTickets.length);
+          cardsContainer.innerHTML = '';
+
+          needsActionTickets.forEach(tk => {
+            const unresolved = listings.filter(
+              l => l.ticket_id === tk.id && (l.status === 'Active' || l.status === 'Pending' || l.status === 'Unknown')
+            );
+            unresolved.forEach(ul => {
+              const card = document.createElement('div');
+              card.className = 'bg-white border border-red-300 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-sm';
+              card.innerHTML = `
+                <div class="space-y-1 text-xs">
+                  <div class="flex items-center gap-2">
+                    <span class="px-2 py-0.5 rounded text-[11px] font-bold ${getMarketplaceBadgeClass(ul.marketplace_name)}">${ul.marketplace_name}</span>
+                    <span class="font-bold text-slate-900">${tk.event_name}</span>
+                  </div>
+                  <p class="text-slate-600">Sec ${tk.section}, Row ${tk.row_name} • Ref: <code class="font-mono font-bold">${ul.marketplace_reference_id || 'N/A'}</code> • Asking: <strong>${formatMoney(ul.asking_price_cents, ul.currency)}</strong></p>
+                </div>
+                <div class="flex items-center gap-2">
+                  ${ul.external_listing_url ? `<a href="${ul.external_listing_url}" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs">1. Open ${ul.marketplace_name} ↗</a>` : ''}
+                  <button type="button" data-resolve-listing="${ul.id}" class="resolve-listing-btn px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition">
+                    2. Confirm Removed Manually ✓
+                  </button>
+                </div>
+              `;
+              cardsContainer.appendChild(card);
+            });
+          });
+        } else {
+          globalAlert.classList.add('hidden');
+          navBadgeNA.classList.add('hidden');
+        }
+
+        // Bind resolve buttons
+        document.querySelectorAll('.resolve-listing-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            confirmListingRemoved(btn.getAttribute('data-resolve-listing'));
+          });
+        });
+
+        // 2. Dashboard Metrics (Strictly filtered by active currency for monetary sums)
+        const nonArchivedTickets = tickets.filter(t => t.status !== 'Archived');
+        const listedTicketsCount = nonArchivedTickets.filter(t => t.status === 'Listed').length;
+        const upcomingCount = nonArchivedTickets.filter(t => (t.event_datetime || '').slice(0, 10) >= todayStr).length;
+
+        const currSales = sales.filter(s => s.currency === curr);
+        const grossSalesCents = currSales.reduce((acc, s) => acc + s.gross_sale_cents, 0);
+        const totalFeesCents = currSales.reduce((acc, s) => acc + s.marketplace_fee_cents + (s.other_costs_cents || 0), 0);
+        const realizedProfitCents = currSales.reduce((acc, s) => acc + s.realized_profit_cents, 0);
+
+        const unsoldCurrTickets = nonArchivedTickets.filter(
+          t => t.currency === curr && (t.status === 'Available' || t.status === 'Listed')
+        );
+        const unsoldCapitalCents = unsoldCurrTickets.reduce((acc, t) => acc + t.acquisition_cost_cents, 0);
+
+        const currPayouts = payouts.filter(p => p.currency === curr);
+        const expectedPayoutsCents = currPayouts
+          .filter(p => p.payout_status === 'Expected' || p.payout_status === 'Processing' || p.payout_status === 'Overdue')
+          .reduce((acc, p) => acc + p.expected_payout_cents, 0);
+        const receivedPayoutsCents = currPayouts
+          .filter(p => p.payout_status === 'Paid')
+          .reduce((acc, p) => acc + (p.actual_received_cents || 0), 0);
+        const overduePayoutsCount = currPayouts.filter(
+          p => (p.payout_status === 'Expected' || p.payout_status === 'Processing') && p.expected_payout_date < todayStr
+        ).length;
+
+        document.getElementById('kpiTotalInventory').textContent = String(nonArchivedTickets.length);
+        document.getElementById('kpiListedTickets').textContent = String(listedTicketsCount);
+        document.getElementById('kpiUpcomingEvents').textContent = String(upcomingCount);
+        document.getElementById('kpiNeedsAction').textContent = String(needsActionTickets.length);
+        document.getElementById('kpiGrossSales').textContent = formatMoney(grossSalesCents, curr);
+        document.getElementById('kpiRealizedProfit').textContent = formatMoney(realizedProfitCents, curr);
+        document.getElementById('kpiExpectedPayouts').textContent = formatMoney(expectedPayoutsCents, curr);
+        document.getElementById('kpiReceivedPayouts').textContent = formatMoney(receivedPayoutsCents, curr);
+        document.getElementById('kpiOverduePayouts').textContent = String(overduePayoutsCount);
+        document.getElementById('kpiUnsoldCapital').textContent = formatMoney(unsoldCapitalCents, curr);
+
+        updateDashboardChart(currSales, curr);
+
+        // Render Activity Logs
+        const actList = document.getElementById('dashboardActivityList');
+        actList.innerHTML = '';
+        userLogs().slice(0, 8).forEach(log => {
+          const item = document.createElement('div');
+          item.className = 'p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1';
+          item.innerHTML = `
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-blue-700">${log.action}</span>
+              <span class="text-[10px] text-slate-400">${log.timestamp}</span>
+            </div>
+            <p class="text-slate-600 leading-relaxed">${log.detail}</p>
+          `;
+          actList.appendChild(item);
+        });
+
+        // 3. Render My Tickets Table
+        renderTicketsTable(tickets, listings);
+
+        // 4. Populate Select Dropdowns for Forms
+        populateTicketSelects(tickets);
+
+        // 5. Render External Listings Table
+        renderListingsTable(tickets, listings);
+
+        // 6. Render Sales Table
+        renderSalesTable(tickets, sales);
+
+        // 7. Render Payouts Table
+        renderPayoutsTable(tickets, payouts, todayStr);
+
+        // 8. Render Reports & Traceable Equation
+        renderReportsSection(currSales, tickets, curr, grossSalesCents, totalFeesCents, realizedProfitCents);
+
+        // 9. Render Persistent Alerts
+        renderAlertsSection(tickets, listings, payouts, todayStr);
+      }
+
+      function renderTicketsTable(tickets, listings) {
+        const searchQ = (document.getElementById('ticketSearchInput').value || '').trim().toLowerCase();
+        const statusFilter = document.getElementById('ticketStatusFilter').value;
+        const sortMode = document.getElementById('ticketSortSelect').value;
+
+        let filtered = tickets.filter(tk => {
+          if (statusFilter === 'ALL') {
+            if (tk.status === 'Archived') return false;
+          } else if (tk.status !== statusFilter) {
+            return false;
+          }
+          if (searchQ) {
+            const hay = `${tk.event_name} ${tk.venue} ${tk.section}`.toLowerCase();
+            if (!hay.includes(searchQ)) return false;
+          }
+          return true;
+        });
+
+        filtered.sort((a, b) => {
+          if (sortMode === 'cost_desc') return b.acquisition_cost_cents - a.acquisition_cost_cents;
+          if (sortMode === 'status') return a.status.localeCompare(b.status);
+          return (a.event_datetime || '').localeCompare(b.event_datetime || '');
+        });
+
+        const tbody = document.getElementById('ticketsTableBody');
+        tbody.innerHTML = '';
+
+        if (filtered.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-400">No matching ticket records found for this filter.</td></tr>`;
+          return;
+        }
+
+        filtered.forEach(tk => {
+          // Compute lowest active price per currency (never mixes currencies)
+          const activeListings = listings.filter(l => l.ticket_id === tk.id && l.status === 'Active');
+          const lowestByCurr = {};
+          activeListings.forEach(l => {
+            if (!lowestByCurr[l.currency] || l.asking_price_cents < lowestByCurr[l.currency]) {
+              lowestByCurr[l.currency] = l.asking_price_cents;
+            }
+          });
+          const lowestStr = Object.keys(lowestByCurr).length > 0
+            ? Object.entries(lowestByCurr).map(([c, amt]) => formatMoney(amt, c)).join(' | ')
+            : '<span class="text-slate-400">No active listings</span>';
+
+          let statusBadge = '';
+          if (tk.status === 'Needs Action') {
+            statusBadge = '<span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-red-100 text-red-800 border border-red-300">⚠ Needs Action</span>';
+          } else if (tk.status === 'Listed') {
+            statusBadge = '<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800">Listed</span>';
+          } else if (tk.status === 'Sold') {
+            statusBadge = '<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">Sold</span>';
+          } else if (tk.status === 'Archived') {
+            statusBadge = '<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-200 text-slate-600">Archived</span>';
+          } else {
+            statusBadge = '<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">Available</span>';
+          }
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50';
+          tr.innerHTML = `
+            <td class="py-3 px-4">
+              <p class="font-bold text-slate-900">${tk.event_name}</p>
+              <p class="text-[11px] text-slate-500">${tk.venue}</p>
+            </td>
+            <td class="py-3 px-3 text-slate-600">${(tk.event_datetime || '').replace('T', ' ')}</td>
+            <td class="py-3 px-3 font-medium text-slate-700">Sec ${tk.section}, Row ${tk.row_name}${tk.seat_range ? `, Seats ${tk.seat_range}` : ''}</td>
+            <td class="py-3 px-3 font-bold">${tk.quantity}</td>
+            <td class="py-3 px-3 font-semibold text-slate-900">${formatMoney(tk.acquisition_cost_cents, tk.currency)}</td>
+            <td class="py-3 px-3 font-semibold text-blue-700">${lowestStr}</td>
+            <td class="py-3 px-3">${statusBadge}</td>
+            <td class="py-3 px-4 text-right space-x-1">
+              ${tk.status !== 'Archived' && tk.status !== 'Needs Action' ? `<button type="button" data-archive-tk="${tk.id}" class="archive-tk-btn px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Archive</button>` : ''}
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        document.querySelectorAll('.archive-tk-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const tid = btn.getAttribute('data-archive-tk');
+            const tk = db.tickets.find(t => t.id === tid && t.user_id === currentUser().id);
+            if (tk) {
+              tk.status = 'Archived';
+              logUserEvent('ARCHIVE_TICKET', `Archived ticket record "${tk.event_name}" (financial history preserved).`);
+              saveDb();
+              renderAll();
+              showToast('Ticket archived safely.');
+            }
+          });
+        });
+      }
+
+      function populateTicketSelects(tickets) {
+        const listable = tickets.filter(t => t.status === 'Available' || t.status === 'Listed');
+        const lstSel = document.getElementById('lstTicketSelect');
+        const saleSel = document.getElementById('saleTicketSelect');
+
+        const optsHtml = listable.map(t => `<option value="${t.id}">${t.event_name} (Sec ${t.section} Row ${t.row_name} — ${t.currency})</option>`).join('');
+        lstSel.innerHTML = optsHtml || '<option value="">No available/listed tickets</option>';
+        saleSel.innerHTML = optsHtml || '<option value="">No available/listed tickets</option>';
+      }
+
+      function renderListingsTable(tickets, listings) {
+        const tbody = document.getElementById('listingsTableBody');
+        tbody.innerHTML = '';
+        const staleDays = currentUser().stale_days || 7;
+        const nowMs = Date.now();
+
+        listings.forEach(lst => {
+          const tk = tickets.find(t => t.id === lst.ticket_id);
+          const daysSinceVer = Math.floor((nowMs - new Date(lst.last_verified_at || Date.now()).getTime()) / 86400000);
+          const isStale = lst.status === 'Active' && daysSinceVer >= staleDays;
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50';
+          tr.innerHTML = `
+            <td class="py-3 px-4">
+              <p class="font-bold text-slate-900">${tk ? tk.event_name : 'Unknown Ticket'}</p>
+              <p class="text-[11px] text-slate-500">${tk ? `Sec ${tk.section}, Row ${tk.row_name}` : ''}</p>
+            </td>
+            <td class="py-3 px-3">
+              <span class="px-2.5 py-1 rounded text-[11px] font-bold ${getMarketplaceBadgeClass(lst.marketplace_name)}">${lst.marketplace_name}</span>
+            </td>
+            <td class="py-3 px-3">
+              <code class="font-mono font-bold text-slate-700">${lst.marketplace_reference_id || 'N/A'}</code>
+              ${lst.external_listing_url ? `<a href="${lst.external_listing_url}" target="_blank" rel="noopener noreferrer" class="ml-2 text-blue-600 hover:underline">Open ↗</a>` : ''}
+            </td>
+            <td class="py-3 px-3 font-extrabold text-slate-900">${formatMoney(lst.asking_price_cents, lst.currency)}</td>
+            <td class="py-3 px-3">
+              <span class="px-2 py-0.5 rounded text-[11px] font-bold ${lst.status === 'Active' ? 'bg-blue-100 text-blue-800' : lst.status === 'Sold' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}">${lst.status}</span>
+            </td>
+            <td class="py-3 px-3">
+              <span class="text-slate-700">${lst.last_verified_at}</span>
+              ${isStale ? `<span class="ml-1.5 px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">Stale (${daysSinceVer}d)</span>` : ''}
+            </td>
+            <td class="py-3 px-4 text-right space-x-1">
+              <button type="button" data-verify-lst="${lst.id}" class="verify-lst-btn px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Mark Verified Today</button>
+              ${lst.status === 'Active' ? `<button type="button" data-remove-lst="${lst.id}" class="remove-lst-btn px-2.5 py-1 rounded bg-red-50 hover:bg-red-100 text-red-700 font-bold border border-red-200">Mark Removed</button>` : ''}
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        document.querySelectorAll('.verify-lst-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-verify-lst');
+            const l = db.listings.find(x => x.id === id && x.user_id === currentUser().id);
+            if (l) {
+              l.last_verified_at = new Date().toISOString().slice(0, 10);
+              saveDb();
+              renderAll();
+              showToast('Listing verification timestamp updated.');
+            }
+          });
+        });
+
+        document.querySelectorAll('.remove-lst-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            confirmListingRemoved(btn.getAttribute('data-remove-lst'));
+          });
+        });
+      }
+
+      function renderSalesTable(tickets, sales) {
+        const tbody = document.getElementById('salesTableBody');
+        tbody.innerHTML = '';
+        sales.forEach(s => {
+          const tk = tickets.find(t => t.id === s.ticket_id);
+          const acqCents = tk ? tk.acquisition_cost_cents : 0;
+          const profitPositive = s.realized_profit_cents >= 0;
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50';
+          tr.innerHTML = `
+            <td class="py-3 px-4">
+              <p class="font-bold text-slate-900">${tk ? tk.event_name : 'Ticket'}</p>
+              <p class="text-[11px] text-slate-500">Sale Date: ${s.sale_datetime}</p>
+            </td>
+            <td class="py-3 px-3">
+              <span class="px-2 py-0.5 rounded text-[11px] font-bold ${getMarketplaceBadgeClass(s.marketplace_name)}">${s.marketplace_name}</span>
+              <p class="text-[11px] text-slate-500 font-mono mt-1">${s.external_order_id || ''}</p>
+            </td>
+            <td class="py-3 px-3 font-bold text-slate-900">${formatMoney(s.gross_sale_cents, s.currency)}</td>
+            <td class="py-3 px-3 text-red-600 font-medium">-${formatMoney(s.marketplace_fee_cents + (s.other_costs_cents || 0), s.currency)}</td>
+            <td class="py-3 px-3 font-bold text-slate-800">${formatMoney(s.net_proceeds_cents, s.currency)}</td>
+            <td class="py-3 px-3 text-slate-600">-${formatMoney(acqCents, s.currency)}</td>
+            <td class="py-3 px-3 font-extrabold ${profitPositive ? 'text-emerald-600' : 'text-red-600'}">${profitPositive ? '+' : ''}${formatMoney(s.realized_profit_cents, s.currency)}</td>
+            <td class="py-3 px-3">
+              ${tk && tk.status === 'Needs Action'
+                ? '<span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-red-100 text-red-800">⚠ Needs Action (Unresolved Listings)</span>'
+                : '<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">✓ Sold & Cleared</span>'}
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      function renderPayoutsTable(tickets, payouts, todayStr) {
+        const tbody = document.getElementById('payoutsTableBody');
+        tbody.innerHTML = '';
+        payouts.forEach(p => {
+          const tk = tickets.find(t => t.id === p.ticket_id);
+          const isOverdue = (p.payout_status === 'Expected' || p.payout_status === 'Processing') && p.expected_payout_date < todayStr;
+          const displayStatus = isOverdue ? 'Overdue (Follow-Up)' : p.payout_status;
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50';
+          tr.innerHTML = `
+            <td class="py-3 px-4 font-bold text-slate-900">${tk ? tk.event_name : 'Sale Payout'}</td>
+            <td class="py-3 px-3"><span class="px-2 py-0.5 rounded text-[11px] font-bold ${getMarketplaceBadgeClass(p.marketplace_name)}">${p.marketplace_name}</span></td>
+            <td class="py-3 px-3 font-bold text-slate-900">${formatMoney(p.expected_payout_cents, p.currency)}</td>
+            <td class="py-3 px-3 text-slate-600">${p.expected_payout_date}</td>
+            <td class="py-3 px-3 font-extrabold text-emerald-700">${p.actual_received_cents !== null ? formatMoney(p.actual_received_cents, p.currency) : '—'}</td>
+            <td class="py-3 px-3 text-slate-600">${p.actual_receipt_date || '—'}</td>
+            <td class="py-3 px-3">
+              <span class="px-2.5 py-1 rounded-full text-[11px] font-bold ${p.payout_status === 'Paid' ? 'bg-emerald-100 text-emerald-800' : isOverdue ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}">${displayStatus}</span>
+            </td>
+            <td class="py-3 px-4 text-right">
+              ${p.payout_status !== 'Paid'
+                ? `<button type="button" data-mark-paid="${p.id}" class="mark-paid-btn px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold">Mark Received</button>`
+                : `<span class="text-slate-400 font-mono text-[11px]">${p.external_payout_reference || 'Settled'}</span>`}
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        document.querySelectorAll('.mark-paid-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const pid = btn.getAttribute('data-mark-paid');
+            const p = db.payouts.find(x => x.id === pid && x.user_id === currentUser().id);
+            if (p) {
+              p.payout_status = 'Paid';
+              p.actual_received_cents = p.expected_payout_cents;
+              p.actual_receipt_date = new Date().toISOString().slice(0, 10);
+              p.external_payout_reference = 'BANK-CONFIRMED-' + Math.floor(1000 + Math.random() * 9000);
+              logUserEvent('PAYOUT_RECEIVED', `Confirmed receipt of ${formatMoney(p.actual_received_cents, p.currency)} from ${p.marketplace_name}.`);
+              saveDb();
+              renderAll();
+              showToast('Payout marked as Paid and added to Received Payouts.');
+            }
+          });
+        });
+      }
+
+      function renderReportsSection(currSales, tickets, curr, grossSalesCents, totalFeesCents, realizedProfitCents) {
+        const soldAcqCents = currSales.reduce((acc, s) => {
+          const tk = tickets.find(t => t.id === s.ticket_id);
+          return acc + (tk ? tk.acquisition_cost_cents : 0);
+        }, 0);
+        const netProceedsCents = grossSalesCents - totalFeesCents;
+
+        document.getElementById('reportEquationBreakdown').innerHTML = `
+          <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+            <p class="text-slate-500">1. Gross Sales</p>
+            <p class="text-base font-extrabold text-slate-900 mt-1">${formatMoney(grossSalesCents, curr)}</p>
+          </div>
+          <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+            <p class="text-slate-500">2. Minus Fees & Costs</p>
+            <p class="text-base font-extrabold text-red-600 mt-1">-${formatMoney(totalFeesCents, curr)}</p>
+          </div>
+          <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+            <p class="text-slate-500">3. Equals Net Proceeds</p>
+            <p class="text-base font-extrabold text-slate-900 mt-1">${formatMoney(netProceedsCents, curr)}</p>
+          </div>
+          <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+            <p class="text-slate-500">4. Minus Sold Acquisition Cost</p>
+            <p class="text-base font-extrabold text-slate-700 mt-1">-${formatMoney(soldAcqCents, curr)}</p>
+          </div>
+          <div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200">
+            <p class="text-emerald-800 font-semibold">5. Confirmed Realized Profit</p>
+            <p class="text-base font-extrabold text-emerald-700 mt-1">${formatMoney(realizedProfitCents, curr)}</p>
+          </div>
+        `;
+
+        const byMarket = {};
+        currSales.forEach(s => {
+          const m = s.marketplace_name;
+          if (!byMarket[m]) {
+            byMarket[m] = { count: 0, gross: 0, fees: 0, acq: 0, profit: 0 };
+          }
+          const tk = tickets.find(t => t.id === s.ticket_id);
+          byMarket[m].count += 1;
+          byMarket[m].gross += s.gross_sale_cents;
+          byMarket[m].fees += s.marketplace_fee_cents + (s.other_costs_cents || 0);
+          byMarket[m].acq += tk ? tk.acquisition_cost_cents : 0;
+          byMarket[m].profit += s.realized_profit_cents;
+        });
+
+        const tbody = document.getElementById('reportMarketplaceBody');
+        tbody.innerHTML = '';
+        Object.entries(byMarket).forEach(([m, stats]) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="py-2.5 px-3 font-bold">${m}</td>
+            <td class="py-2.5 px-3">${stats.count}</td>
+            <td class="py-2.5 px-3 font-semibold">${formatMoney(stats.gross, curr)}</td>
+            <td class="py-2.5 px-3 text-red-600">-${formatMoney(stats.fees, curr)}</td>
+            <td class="py-2.5 px-3 text-slate-600">-${formatMoney(stats.acq, curr)}</td>
+            <td class="py-2.5 px-3 font-extrabold text-emerald-600">${formatMoney(stats.profit, curr)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      function renderAlertsSection(tickets, listings, payouts, todayStr) {
+        const container = document.getElementById('alertsListContainer');
+        container.innerHTML = '';
+        const alerts = [];
+
+        // 1. Critical Duplicate-Sale Needs Action Alerts
+        tickets.filter(t => t.status === 'Needs Action').forEach(tk => {
+          const unresolved = listings.filter(l => l.ticket_id === tk.id && l.status === 'Active');
+          alerts.push({
+            severity: 'critical',
+            title: `CRITICAL: Deactivate ${unresolved.length} External Listing(s) for "${tk.event_name}"`,
+            detail: `Ticket sold, but still listed as Active on: ${unresolved.map(u => `${u.marketplace_name} (${u.marketplace_reference_id || 'No Ref'})`).join(', ')}. Visit each external marketplace to remove immediately.`
+          });
+        });
+
+        // 2. Stale Listings Alerts
+        const staleDays = currentUser().stale_days || 7;
+        listings.filter(l => l.status === 'Active').forEach(l => {
+          const days = Math.floor((Date.now() - new Date(l.last_verified_at || Date.now()).getTime()) / 86400000);
+          if (days >= staleDays) {
+            const tk = tickets.find(t => t.id === l.ticket_id);
+            alerts.push({
+              severity: 'warning',
+              title: `Stale Listing Verification (${days} days old): ${l.marketplace_name}`,
+              detail: `Verify that your listing (${l.marketplace_reference_id || 'No Ref'}) for "${tk ? tk.event_name : ''}" is still accurately priced on ${l.marketplace_name}.`
+            });
+          }
+        });
+
+        // 3. Overdue Payout Follow-Ups
+        payouts.filter(p => p.payout_status !== 'Paid' && p.expected_payout_date < todayStr).forEach(p => {
+          alerts.push({
+            severity: 'warning',
+            title: `Payout Follow-Up Overdue: ${p.marketplace_name} (${formatMoney(p.expected_payout_cents, p.currency)})`,
+            detail: `Expected payout date (${p.expected_payout_date}) has passed. Check your ${p.marketplace_name} payout settings.`
+          });
+        });
+
+        const badge = document.getElementById('navBadgeAlerts');
+        if (alerts.length > 0) {
+          badge.classList.remove('hidden');
+          badge.textContent = String(alerts.length);
+        } else {
+          badge.classList.add('hidden');
+        }
+
+        if (alerts.length === 0) {
+          container.innerHTML = `<div class="bg-white rounded-2xl border border-slate-200 p-6 text-center text-xs text-slate-500">All alerts resolved. Zero pending duplicate-sale or payout warnings.</div>`;
+          return;
+        }
+
+        alerts.forEach(a => {
+          const div = document.createElement('div');
+          div.className = a.severity === 'critical'
+            ? 'bg-red-50 border-l-4 border-red-600 rounded-xl p-4 text-xs space-y-1'
+            : 'bg-amber-50 border-l-4 border-amber-500 rounded-xl p-4 text-xs space-y-1';
+          div.innerHTML = `
+            <p class="font-extrabold ${a.severity === 'critical' ? 'text-red-900' : 'text-amber-900'}">${a.title}</p>
+            <p class="${a.severity === 'critical' ? 'text-red-800' : 'text-amber-800'}">${a.detail}</p>
+          `;
+          container.appendChild(div);
+        });
+      }
+
+      // Wire Navigation & Forms on DOMContentLoaded
+      window.addEventListener('DOMContentLoaded', () => {
+        const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+        document.getElementById('salePayoutDateInput').value = nextWeek;
+        document.getElementById('tkDateInput').value = nextWeek + 'T20:00';
+
+        // Sidebar Navigation
+        const sections = ['dashboard', 'tickets', 'listings', 'sales', 'payouts', 'reports', 'alerts', 'privacy', 'settings'];
+        function activateSection(target) {
+          sections.forEach(s => {
+            const el = document.getElementById('sec-' + s);
+            if (el) {
+              if (s === target) el.classList.remove('hidden');
+              else el.classList.add('hidden');
+            }
+          });
+          document.querySelectorAll('.nav-btn').forEach(btn => {
+            if (btn.getAttribute('data-nav') === target) {
+              btn.className = 'nav-btn flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-blue-600 text-white transition';
+            } else {
+              btn.className = 'nav-btn flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition';
+            }
+          });
+        }
+
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+          btn.addEventListener('click', () => activateSection(btn.getAttribute('data-nav')));
+        });
+
+        document.getElementById('dashAddTicketBtn').addEventListener('click', () => activateSection('tickets'));
+        document.getElementById('dashRecordSaleBtn').addEventListener('click', () => activateSection('sales'));
+        document.getElementById('jumpToNeedsActionBtn').addEventListener('click', () => activateSection('listings'));
+
+        // Currency Switcher
+        document.getElementById('globalCurrencySelect').addEventListener('change', e => {
+          db.activeCurrency = e.target.value;
+          saveDb();
+          renderAll();
+          showToast('Switched financial view to ' + db.activeCurrency);
+        });
+
+        // Search & Filters on My Tickets
+        ['ticketSearchInput', 'ticketStatusFilter', 'ticketSortSelect'].forEach(id => {
+          document.getElementById(id).addEventListener('input', () => renderAll());
+          document.getElementById(id).addEventListener('change', () => renderAll());
+        });
+
+        // Create Ticket Form
+        document.getElementById('createTicketForm').addEventListener('submit', e => {
+          e.preventDefault();
+          const ev = document.getElementById('tkEventInput').value.trim();
+          const ven = document.getElementById('tkVenueInput').value.trim();
+          const dt = document.getElementById('tkDateInput').value;
+          const sec = document.getElementById('tkSectionInput').value.trim();
+          const row = document.getElementById('tkRowInput').value.trim();
+          const seats = document.getElementById('tkSeatsInput').value.trim();
+          const qty = parseInt(document.getElementById('tkQtyInput').value, 10);
+          const costCents = toCents(document.getElementById('tkCostInput').value);
+          const curr = document.getElementById('tkCurrInput').value;
+
+          if (!ev || !ven || qty <= 0 || costCents < 0) {
+            showToast('Please enter valid event, venue, positive quantity, and non-negative cost.', true);
+            return;
+          }
+
+          const newTk = {
+            id: 'tk_' + Date.now(),
+            user_id: currentUser().id,
+            event_name: ev,
+            event_datetime: dt,
+            venue: ven,
+            section: sec,
+            row_name: row,
+            seat_range: seats,
+            quantity: qty,
+            acquisition_cost_cents: costCents,
+            currency: curr,
+            status: 'Available',
+            created_at: new Date().toISOString()
+          };
+          db.tickets.unshift(newTk);
+          logUserEvent('CREATE_TICKET', `Added inventory block for "${ev}" (${qty}x, ${formatMoney(costCents, curr)}).`);
+          saveDb();
+          e.target.reset();
+          document.getElementById('tkQtyInput').value = '2';
+          document.getElementById('tkDateInput').value = nextWeek + 'T20:00';
+          renderAll();
+          showToast('Ticket inventory record saved.');
+        });
+
+        // Create External Listing Form
+        document.getElementById('createListingForm').addEventListener('submit', e => {
+          e.preventDefault();
+          const tid = document.getElementById('lstTicketSelect').value;
+          const market = document.getElementById('lstMarketSelect').value;
+          const askCents = toCents(document.getElementById('lstAskPriceInput').value);
+          const curr = document.getElementById('lstCurrSelect').value;
+          const ref = document.getElementById('lstRefInput').value.trim();
+          const url = document.getElementById('lstUrlInput').value.trim();
+
+          const tk = db.tickets.find(t => t.id === tid && t.user_id === currentUser().id);
+          if (!tk || askCents <= 0) {
+            showToast('Select a valid ticket and positive asking price.', true);
+            return;
+          }
+
+          db.listings.unshift({
+            id: 'lst_' + Date.now(),
+            user_id: currentUser().id,
+            ticket_id: tid,
+            marketplace_name: market,
+            external_listing_url: url || null,
+            marketplace_reference_id: ref || (market.slice(0, 2).toUpperCase() + '-' + Math.floor(10000 + Math.random() * 90000)),
+            asking_price_cents: askCents,
+            currency: curr,
+            status: 'Active',
+            last_verified_at: new Date().toISOString().slice(0, 10)
+          });
+          logUserEvent('CREATE_LISTING', `Logged ${market} listing for "${tk.event_name}" at ${formatMoney(askCents, curr)}.`);
+          saveDb();
+          renderAll();
+          showToast(`External listing on ${market} recorded.`);
+        });
+
+        // Record Completed Sale Form (Triggers Duplicate-Sale Safety Check)
+        document.getElementById('recordSaleForm').addEventListener('submit', e => {
+          e.preventDefault();
+          const tid = document.getElementById('saleTicketSelect').value;
+          const market = document.getElementById('saleMarketSelect').value;
+          const grossCents = toCents(document.getElementById('saleGrossInput').value);
+          const feeCents = toCents(document.getElementById('saleFeeInput').value);
+          const otherCents = toCents(document.getElementById('saleOtherCostInput').value);
+          const orderRef = document.getElementById('saleOrderRefInput').value.trim();
+          const payoutDate = document.getElementById('salePayoutDateInput').value;
+          const notes = document.getElementById('saleNotesInput').value.trim();
+
+          const tk = db.tickets.find(t => t.id === tid && t.user_id === currentUser().id);
+          if (!tk) {
+            showToast('Select a valid ticket.', true);
+            return;
+          }
+
+          // Mark matching active listing on that same marketplace as Sold if one exists
+          const matchingListing = db.listings.find(
+            l => l.ticket_id === tid && l.user_id === currentUser().id && l.marketplace_name === market && l.status === 'Active'
+          );
+          if (matchingListing) {
+            matchingListing.status = 'Sold';
+          }
+
+          const netProceedsCents = grossCents - feeCents - otherCents;
+          const realizedProfitCents = netProceedsCents - tk.acquisition_cost_cents;
+          const saleId = 'sale_' + Date.now();
+
+          db.sales.unshift({
+            id: saleId,
+            user_id: currentUser().id,
+            ticket_id: tid,
+            sold_listing_id: matchingListing ? matchingListing.id : null,
+            sale_datetime: new Date().toISOString().slice(0, 10),
+            marketplace_name: market,
+            external_order_id: orderRef || ('ORD-' + Math.floor(10000 + Math.random() * 90000)),
+            gross_sale_cents: grossCents,
+            marketplace_fee_cents: feeCents,
+            other_costs_cents: otherCents,
+            net_proceeds_cents: netProceedsCents,
+            realized_profit_cents: realizedProfitCents,
+            currency: tk.currency,
+            notes
+          });
+
+          db.payouts.unshift({
+            id: 'pay_' + Date.now(),
+            user_id: currentUser().id,
+            sale_id: saleId,
+            ticket_id: tid,
+            marketplace_name: market,
+            expected_payout_cents: Math.max(0, netProceedsCents),
+            currency: tk.currency,
+            expected_payout_date: payoutDate,
+            actual_received_cents: null,
+            actual_receipt_date: null,
+            payout_status: 'Expected',
+            external_payout_reference: 'PENDING'
+          });
+
+          syncTicketStatusesForCurrentUser();
+          const remainingActive = db.listings.filter(
+            l => l.ticket_id === tid && l.user_id === currentUser().id && l.status === 'Active'
+          );
+
+          logUserEvent(
+            'RECORD_SALE',
+            `Recorded sale on ${market} for "${tk.event_name}" (Realized Profit: ${formatMoney(realizedProfitCents, tk.currency)}). Unresolved listings: ${remainingActive.length}.`
+          );
+          saveDb();
+          renderAll();
+
+          if (remainingActive.length > 0) {
+            showToast(`WARNING: ${remainingActive.length} other listing(s) are still Active! Ticket placed in "Needs Action".`, true);
+          } else {
+            showToast('Sale recorded! Zero conflicting listings found; ticket marked Sold.');
+          }
+        });
+
+        // CSV Export (Formula-Injection Safe)
+        document.getElementById('exportSalesCsvBtn').addEventListener('click', () => {
+          const curr = db.activeCurrency || 'USD';
+          const sales = userSales().filter(s => s.currency === curr);
+          const tickets = userTickets();
+          const headers = [
+            'Sale ID', 'Event Name', 'Venue', 'Marketplace', 'Order ID', 'Sale Date',
+            'Currency', 'Gross Sale', 'Marketplace Fees', 'Acquisition Cost', 'Net Proceeds', 'Realized Profit', 'Notes'
+          ];
+          const rows = [headers.join(',')];
+          sales.forEach(s => {
+            const tk = tickets.find(t => t.id === s.ticket_id);
+            const line = [
+              sanitizeCsvCell(s.id),
+              `"${sanitizeCsvCell(tk ? tk.event_name : '').replace(/"/g, '""')}"`,
+              `"${sanitizeCsvCell(tk ? tk.venue : '').replace(/"/g, '""')}"`,
+              sanitizeCsvCell(s.marketplace_name),
+              sanitizeCsvCell(s.external_order_id),
+              sanitizeCsvCell(s.sale_datetime),
+              sanitizeCsvCell(s.currency),
+              (s.gross_sale_cents / 100).toFixed(2),
+              ((s.marketplace_fee_cents + (s.other_costs_cents || 0)) / 100).toFixed(2),
+              ((tk ? tk.acquisition_cost_cents : 0) / 100).toFixed(2),
+              (s.net_proceeds_cents / 100).toFixed(2),
+              (s.realized_profit_cents / 100).toFixed(2),
+              `"${sanitizeCsvCell(s.notes || '').replace(/"/g, '""')}"`
+            ];
+            rows.push(line.join(','));
+          });
+
+          const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `TicketPilot_Authorized_Sales_${curr}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          showToast(`Exported ${sales.length} authorized ${curr} sales records (formula-injection sanitized).`);
+        });
+
+        // Full JSON Data Export
+        document.getElementById('exportFullJsonBtn').addEventListener('click', () => {
+          const payload = {
+            exported_at: new Date().toISOString(),
+            user: currentUser(),
+            tickets: userTickets(),
+            external_listings: userListings(),
+            sales: userSales(),
+            payouts: userPayouts()
+          };
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `TicketPilot_Data_Export_${currentUser().id}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          showToast('Exported your isolated account data as JSON.');
+        });
+
+        // Auth & Multi-User Switcher Modal
+        const authModal = document.getElementById('authGateModal');
+        function renderDemoUsersInModal() {
+          const list = document.getElementById('demoUsersList');
+          list.innerHTML = '';
+          db.users.forEach(u => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            const isCurrent = u.id === db.currentUserId;
+            btn.className = `w-full text-left px-3 py-2 rounded-lg text-xs font-semibold border flex items-center justify-between ${isCurrent ? 'bg-blue-50 border-blue-500 text-blue-900' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'}`;
+            btn.innerHTML = `
+              <span>${u.full_name} (${u.email})</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${u.email_verified ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${u.email_verified ? 'Verified' : 'Unverified'}</span>
+            `;
+            btn.addEventListener('click', () => {
+              db.currentUserId = u.id;
+              if (u.id === 'user_b') db.activeCurrency = 'GBP';
+              if (u.id === 'user_a') db.activeCurrency = 'USD';
+              saveDb();
+              authModal.classList.add('hidden');
+              authModal.classList.remove('flex');
+              renderAll();
+              showToast(`Switched session to ${u.full_name}. Cross-user records are strictly isolated.`);
+            });
+            list.appendChild(btn);
+          });
+        }
+
+        document.getElementById('switchUserTriggerBtn').addEventListener('click', () => {
+          renderDemoUsersInModal();
+          authModal.classList.remove('hidden');
+          authModal.classList.add('flex');
+        });
+        document.getElementById('closeAuthModalBtn').addEventListener('click', () => {
+          authModal.classList.add('hidden');
+          authModal.classList.remove('flex');
+        });
+
+        // Register New Account (Enforces Unverified Email Gate)
+        document.getElementById('registerForm').addEventListener('submit', e => {
+          e.preventDefault();
+          const name = document.getElementById('regNameInput').value.trim();
+          const email = document.getElementById('regEmailInput').value.trim().toLowerCase();
+          const pass = document.getElementById('regPassInput').value;
+          const terms = document.getElementById('regTermsCheck').checked;
+
+          if (pass.length < 8 || !/[A-Z]/.test(pass) || !/[a-z]/.test(pass) || !/[0-9]/.test(pass)) {
+            showToast('Password must be 8+ chars and include uppercase, lowercase, and a number.', true);
+            return;
+          }
+          if (!terms) {
+            showToast('Please accept the Terms and Privacy Policy.', true);
+            return;
+          }
+          const newId = 'user_' + Date.now();
+          const verToken = 'VERIFY-' + Math.random().toString(36).slice(2, 10).toUpperCase();
+          db.users.push({
+            id: newId,
+            full_name: name,
+            email,
+            password: pass,
+            email_verified: false,
+            verification_token: verToken,
+            stale_days: 7,
+            upcoming_days: 14
+          });
+          db.currentUserId = newId;
+          saveDb();
+          authModal.classList.add('hidden');
+          authModal.classList.remove('flex');
+          renderAll();
+          showToast('Account registered! Business features are locked until you click Complete Email Verification.');
+        });
+
+        // Complete Email Verification Button
+        document.getElementById('completeEmailVerificationBtn').addEventListener('click', () => {
+          const u = currentUser();
+          u.email_verified = true;
+          u.verification_token = null;
+          logUserEvent('EMAIL_VERIFIED', `Email address ${u.email} verified. Full inventory and financial features unlocked.`);
+          saveDb();
+          renderAll();
+          showToast('Email verified! Your TicketPilot workspace is now unlocked.');
+        });
+
+        document.getElementById('resendVerificationBtn').addEventListener('click', () => {
+          const u = currentUser();
+          u.verification_token = 'VERIFY-' + Math.random().toString(36).slice(2, 10).toUpperCase();
+          saveDb();
+          renderAll();
+          showToast('New verification token generated.');
+        });
+
+        // Reauthenticated Account Deletion
+        document.getElementById('deleteAccountForm').addEventListener('submit', e => {
+          e.preventDefault();
+          const pass = document.getElementById('delPassInput').value;
+          const phrase = document.getElementById('delPhraseInput').value.trim();
+          const u = currentUser();
+          if (phrase !== 'DELETE MY ACCOUNT') {
+            showToast('Please type DELETE MY ACCOUNT exactly.', true);
+            return;
+          }
+          if (pass !== u.password) {
+            showToast('Reauthentication failed: incorrect password.', true);
+            return;
+          }
+          if (db.users.length <= 1) {
+            showToast('Cannot delete the last remaining demo account in sandbox.', true);
+            return;
+          }
+          const delId = u.id;
+          db.tickets = db.tickets.filter(t => t.user_id !== delId);
+          db.listings = db.listings.filter(l => l.user_id !== delId);
+          db.sales = db.sales.filter(s => s.user_id !== delId);
+          db.payouts = db.payouts.filter(p => p.user_id !== delId);
+          db.activityLogs = db.activityLogs.filter(a => a.user_id !== delId);
+          db.users = db.users.filter(x => x.id !== delId);
+          db.currentUserId = db.users[0].id;
+          saveDb();
+          e.target.reset();
+          renderAll();
+          showToast('Account and all owned active database records purged.');
+        });
+
+        // Preferences Form
+        document.getElementById('preferencesForm').addEventListener('submit', e => {
+          e.preventDefault();
+          const u = currentUser();
+          u.stale_days = parseInt(document.getElementById('prefStaleDaysInput').value, 10) || 7;
+          u.upcoming_days = parseInt(document.getElementById('prefUpcomingDaysInput').value, 10) || 14;
+          saveDb();
+          renderAll();
+          showToast('Alert thresholds updated.');
+        });
+
+        renderAll();
+      });
+    })();
+  </script>
+</body>
+</html>
