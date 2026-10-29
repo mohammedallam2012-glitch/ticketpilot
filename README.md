@@ -17,12 +17,17 @@ Before deploying publicly, review the verified legal and operational constraints
      - **Backups**: **0 automated backups** are included on the Free tier (7-day automated backups require Supabase Pro at $25/mo). You must run periodic manual `pg_dump` or CSV exports to back up records on the Free tier.
 
 ## 3. Repository Structure
+- `src/app/route.js`: Next.js App Router entry point for `/`. It serves the existing `index.html` interface as static HTML generated at build time, preserving its styles and browser scripts.
 - `supabase/migrations/001_initial_schema.sql`: Complete PostgreSQL schema with `UUID` primary keys, `BIGINT` integer-cent monetary columns, foreign key constraints, indexes, and strict `Row Level Security (RLS)` policies (`auth.uid() = user_id`).
 - `src/lib/actions.ts`: Next.js 14 Server Actions enforcing authenticated + email-verified sessions, ownership validation, integer-cent profit calculation, and Duplicate-Sale Safety state transitions.
 - `backend/ticketpilot_engine.py`: Self-contained Python/SQLite relational backend engine mirroring the exact PostgreSQL schema and business logic for local execution and automated security testing.
 - `tests/test_ticketpilot_suite.py`: Automated verification suite testing authentication, email verification gating, multi-currency lowest asking price, Duplicate-Sale Safety (`Needs Action`), financial calculations, cross-user IDOR isolation, CSV formula injection protection, and reauthenticated account deletion.
 
 ## 4. Setup & Local Development Instructions
+
+### Netlify Deployment
+
+Build from the repository root with `npm run build` and publish `.next`. The committed `src/app/` directory provides the Next.js route required by the build; no base subdirectory is needed. The homepage uses the existing browser sandbox in `index.html`; this deployment fix does not connect it to the server actions or enable production authentication and database storage.
 
 ### Option A: Run the Local Relational Backend & Automated Security Tests
 ```bash
