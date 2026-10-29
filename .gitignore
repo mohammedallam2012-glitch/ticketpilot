@@ -1,0 +1,8 @@
+node_modules/
+.next/
+.env*.local
+__pycache__/
+*.tsbuildinfo
+
+# Local Netlify folder
+.netlify

@@ -1,0 +1,10 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+# Serve the self-contained TicketPilot console at the site root.
+[[redirects]]
+  from = "/"
+  to = "/index.html"
+  status = 200
+  force = true
